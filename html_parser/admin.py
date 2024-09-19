@@ -1,3 +1,4 @@
 from django.contrib import admin
+from data_storage.models import ParsedContent
 
-# Register your models here.
+admin.site.register(ParsedContent)
