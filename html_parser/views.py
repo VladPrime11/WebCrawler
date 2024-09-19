@@ -1,13 +1,20 @@
+import json
+
 import requests
 from bs4 import BeautifulSoup
+from data_storage.models import ParsedContent
 
 
 def fetch_html(url):
     """
-    Загружает HTML-контент с веб-страницы.
+    Загружает HTML-контент с веб-страницы, добавляя заголовок User-Agent для обхода блокировок.
     """
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+    }
+
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)  # Добавляем заголовки
         if response.status_code == 200:
             return response.text
         else:
@@ -73,21 +80,37 @@ def extract_text(html_content):
 
 def seo_analyze(url):
     """
-    Проводит SEO-анализ страницы по URL. Извлекает заголовки, мета-теги, ссылки и текст.
+    Проводит SEO-анализ страницы по URL и сохраняет результаты в базу данных.
     """
     html_content = fetch_html(url)
 
     if html_content:
         headings = extract_headings(html_content)
-        print(f"Заголовки: {headings}")
-
         meta_tags = extract_meta_tags(html_content)
-        print(f"Мета-теги: {meta_tags}")
-
         links = extract_links(html_content)
-        print(f"Ссылки на странице: {links}")
-
         text = extract_text(html_content)
-        print(f"Основной текст: {text[:300]}...")
+
+        save_parsed_content(url, headings, meta_tags, links, text)
+
+        print(f"Результаты для {url} сохранены в базу данных.")
     else:
         print(f"Не удалось загрузить страницу по адресу {url}")
+
+
+def save_parsed_content(url, headings, meta_tags, links, text):
+    """
+    Сохраняет результаты парсинга страницы в базу данных с читаемыми символами.
+    """
+    parsed_content = ParsedContent(
+        url=url,
+        title=meta_tags.get('title', ''),
+        description=meta_tags.get('description', ''),
+        keywords=meta_tags.get('keywords', ''),
+        headings=headings,
+        text=text[:1000],
+        links=links
+    )
+
+    parsed_content.save()
+
+
