@@ -8,11 +8,12 @@ from .models import UrlQueue
 
 def add_url_to_queue(url):
     """
-    Добавляет новый URL в очередь, если он ещё не существует.
+    Добавляет новый URL в очередь, если его еще нет.
     """
     if not UrlQueue.objects.filter(url=url).exists():
         new_url = UrlQueue(url=url)
         new_url.save()
+        print(f"URL {url} добавлен в очередь.")
         return True
     return False
 
@@ -36,6 +37,7 @@ def mark_url_as_crawled(url):
         return True
     except UrlQueue.DoesNotExist:
         return False
+
 
 @csrf_exempt
 def add_url_view(request):

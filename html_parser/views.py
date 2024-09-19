@@ -1,8 +1,9 @@
-import json
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 from data_storage.models import ParsedContent
+from url_queue.views import add_url_to_queue
 
 
 def fetch_html(url):
@@ -14,7 +15,7 @@ def fetch_html(url):
     }
 
     try:
-        response = requests.get(url, headers=headers)  # Добавляем заголовки
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
             return response.text
         else:
@@ -80,7 +81,7 @@ def extract_text(html_content):
 
 def seo_analyze(url):
     """
-    Проводит SEO-анализ страницы по URL и сохраняет результаты в базу данных.
+    Проводит SEO-анализ страницы по URL, сохраняет результаты и добавляет найденные ссылки в очередь.
     """
     html_content = fetch_html(url)
 
@@ -92,7 +93,11 @@ def seo_analyze(url):
 
         save_parsed_content(url, headings, meta_tags, links, text)
 
-        print(f"Результаты для {url} сохранены в базу данных.")
+        for link in links:
+            absolute_url = urljoin(url, link)
+            add_url_to_queue(absolute_url)
+
+        print(f"Результаты для {url} сохранены и ссылки добавлены в очередь.")
     else:
         print(f"Не удалось загрузить страницу по адресу {url}")
 
