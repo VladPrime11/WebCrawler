@@ -94,7 +94,6 @@ DATABASES = {
 DATABASE_ROUTERS = ['db_router.UrlQueueRouter']
 
 
-# Настройки Celery
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
@@ -107,7 +106,7 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_BEAT_SCHEDULE = {
     'crawl_next_url_every_minute': {
         'task': 'crawler_manager.tasks.crawl_next_url_task',
-        'schedule': 10.0,
+        'schedule': 0,
     },
 }
 
