@@ -1,17 +1,9 @@
-from url_queue.views import get_next_url, mark_url_as_crawled
-from html_parser.views import seo_analyze
+from django.http import JsonResponse
+from crawler_manager.tasks import crawl_next_url_task
 
-
-def crawl_next_url():
+def trigger_crawl_task(request):
     """
-    Извлекает следующий URL из очереди, анализирует его с помощью seo_analyze и помечает как обработанный.
+    Запускает задачу для обработки следующего URL.
     """
-    url_entry = get_next_url()
-
-    if url_entry:
-        print(f"Обрабатываем URL: {url_entry.url}")
-        seo_analyze(url_entry.url)
-
-        mark_url_as_crawled(url_entry.url)
-    else:
-        print("Все URL обработаны или очередь пуста.")
+    result = crawl_next_url_task.delay()  # Запускаем задачу в Celery
+    return JsonResponse({'task_id': result.task_id, 'status': 'Task started'})
