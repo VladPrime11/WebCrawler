@@ -1,0 +1,30 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+    <h2>Управление Celery</h2>
+    <div>
+        <form action="{% url 'admin:start-worker' %}" method="post">
+            {% csrf_token %}
+            <input type="submit" value="Запустить воркеров">
+        </form>
+
+        <form action="{% url 'admin:stop-worker' %}" method="post">
+            {% csrf_token %}
+            <input type="submit" value="Остановить воркеров">
+        </form>
+
+        <form action="{% url 'admin:start-beat' %}" method="post">
+            {% csrf_token %}
+            <input type="submit" value="Запустить Beat">
+        </form>
+
+        <form action="{% url 'admin:stop-beat' %}" method="post">
+            {% csrf_token %}
+            <input type="submit" value="Остановить Beat">
+        </form>
+    </div>
+
+    <h2>Celery Статистика</h2>
+    <p>Количество выполненных задач: {{ completed_tasks }}</p>
+    <p>Среднее время выполнения задач: {{ avg_duration }} секунд</p>
+{% endblock %}
