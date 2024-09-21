@@ -1,5 +1,4 @@
 import json
-
 from django.core.validators import URLValidator
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -56,6 +55,13 @@ def add_url_view(request):
             return JsonResponse({'success': False, 'message': 'Invalid JSON format'})
 
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+@csrf_exempt
+def start_crawler(request):
+    from crawler_manager.tasks import crawl_next_url_task
+    task = crawl_next_url_task.delay()
+    request.session['task_id'] = task.id
+    return JsonResponse({'message': 'Crawler task started successfully!', 'task_id': task.id})
 
 
 def clear_queue():

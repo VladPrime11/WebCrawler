@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: >
+      bash -c "
+      python manage.py migrate --database=default &&
+      python manage.py migrate --database=url_queue_db &&
+      python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+      - celery
+    networks:
+      - webcrawler-network
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - webcrawler-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    env_file:
+      - .env
+    networks:
+      - webcrawler-network
+
+  celery:
+    build: .
+    command: celery -A WebCrawler worker --loglevel=info --pool=solo -n worker1@%h
+    volumes:
+      - .:/code
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    networks:
+      - webcrawler-network
+
+
+
+volumes:
+  postgres_data:
+
+networks:
+  webcrawler-network:

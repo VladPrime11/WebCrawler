@@ -4,7 +4,6 @@ import requests
 import random
 from bs4 import BeautifulSoup
 from data_storage.models import ParsedContent
-from url_queue.views import add_url_to_queue
 
 
 def fetch_html(url):
@@ -76,6 +75,7 @@ def extract_text(html_content):
 
 
 def seo_analyze(url):
+    from url_queue.views import add_url_to_queue
     html_content = fetch_html(url)
 
     if html_content:

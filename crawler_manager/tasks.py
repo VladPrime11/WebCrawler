@@ -2,10 +2,13 @@ import time
 from celery import shared_task, group
 import asyncio
 import aiohttp
+import logging
 from bs4 import BeautifulSoup
-from html_parser.views import seo_analyze
-from url_queue.views import get_next_url, mark_url_as_crawled
 
+from crawler_manager.utils import url_queue_is_empty
+
+
+logger = logging.getLogger(__name__)
 
 @shared_task
 def run_crawler_task(url):
@@ -79,18 +82,28 @@ def add_to_queue(urls):
 
 @shared_task
 def crawl_next_url_task():
+    from html_parser.views import seo_analyze
+    from url_queue.views import get_next_url, mark_url_as_crawled
     start_time = time.time()
 
-    url_entry = get_next_url()
+    if not url_queue_is_empty():
+        url_entry = get_next_url()
 
-    if url_entry:
-        print(f"Processing URL: {url_entry.url}")
-        seo_analyze(url_entry.url)
-        mark_url_as_crawled(url_entry.url)
-        result = "URL processed"
+        if url_entry:
+            logger.info(f"Processing URL: {url_entry.url}")
+            seo_analyze(url_entry.url)
+            mark_url_as_crawled(url_entry.url)
+            result = "URL processed"
+        else:
+            logger.info("All URLs are processed.")
+            result = "No URLs to process"
+
+        if not url_queue_is_empty():
+            crawl_next_url_task.delay()
+
     else:
-        print("All URLs are processed or the queue is empty.")
-        result = "No URLs to process"
+        logger.info("Queue is empty, skipping task execution.")
+        result = "Queue is empty"
 
     end_time = time.time()
     duration = end_time - start_time

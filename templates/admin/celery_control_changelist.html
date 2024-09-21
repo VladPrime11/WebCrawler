@@ -12,16 +12,6 @@
             {% csrf_token %}
             <input type="submit" value="Остановить воркеров">
         </form>
-
-        <form action="{% url 'admin:start-beat' %}" method="post">
-            {% csrf_token %}
-            <input type="submit" value="Запустить Beat">
-        </form>
-
-        <form action="{% url 'admin:stop-beat' %}" method="post">
-            {% csrf_token %}
-            <input type="submit" value="Остановить Beat">
-        </form>
     </div>
 
     <h2>Celery Статистика</h2>
