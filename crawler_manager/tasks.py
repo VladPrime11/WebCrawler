@@ -1,21 +1,19 @@
+import time
 from celery import shared_task, group
 import asyncio
 import aiohttp
+import logging
 from bs4 import BeautifulSoup
 
-from html_parser.views import seo_analyze
-from url_queue.views import get_next_url, mark_url_as_crawled
+from crawler_manager.utils import url_queue_is_empty
 
 
-@shared_task
-def simple_task():
-    print("Задача выполняется")
-    return "Задача завершена"
+logger = logging.getLogger(__name__)
 
-
-# Задача для выполнения парсинга страницы по URL
 @shared_task
 def run_crawler_task(url):
+    start_time = time.time()
+
     async def fetch(session, url):
         async with session.get(url) as response:
             return await response.text()
@@ -28,50 +26,86 @@ def run_crawler_task(url):
             print(f'Parsed title: {title}')
             return title
 
-    return asyncio.run(main(url))
+    result = asyncio.run(main(url))
+
+    end_time = time.time()
+    duration = end_time - start_time
+
+    return {'result': result, 'time': duration}
 
 
-# Задача для извлечения всех ссылок с страницы
 @shared_task
 def extract_links(html_content):
+    start_time = time.time()
+
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
         links = [a['href'] for a in soup.find_all('a', href=True)]
         print(f'Extracted {len(links)} links')
-        return links
+        result = links
     except Exception as e:
         print(f"Error extracting links: {e}")
-        return []
+        result = []
+
+    end_time = time.time()
+    duration = end_time - start_time
+
+    return {'result': result, 'time': duration}
 
 
-# Задача для удаления дубликатов из списка URL
 @shared_task
 def deduplicate(url_list):
-    unique_urls = list(set(url_list))  # Простая дедупликация с помощью set
+    start_time = time.time()
+
+    unique_urls = list(set(url_list))
     print(f'Deduplicated list, {len(unique_urls)} unique URLs')
-    return unique_urls
+
+    end_time = time.time()
+    duration = end_time - start_time
+
+    return {'result': unique_urls, 'time': duration}
 
 
-# Задача для добавления URL в очередь на дальнейший парсинг
 @shared_task
 def add_to_queue(urls):
-    tasks = [run_crawler_task.s(url) for url in urls]  # Создаём задачу для каждой ссылки
-    group(*tasks).apply_async()  # Запускаем задачи параллельно в группе
+    start_time = time.time()
+
+    tasks = [run_crawler_task.s(url) for url in urls]
+    group(*tasks).apply_async()
     print(f'Added {len(urls)} URLs to queue')
-    return True
+
+    end_time = time.time()
+    duration = end_time - start_time
+
+    return {'result': True, 'time': duration}
 
 
 @shared_task
 def crawl_next_url_task():
-    """
-    Celery задача для обработки следующего URL из очереди.
-    """
-    url_entry = get_next_url()
+    from html_parser.views import seo_analyze
+    from url_queue.views import get_next_url, mark_url_as_crawled
+    start_time = time.time()
 
-    if url_entry:
-        print(f"Обрабатываем URL: {url_entry.url}")
-        seo_analyze(url_entry.url)
-        mark_url_as_crawled(url_entry.url)
+    if not url_queue_is_empty():
+        url_entry = get_next_url()
+
+        if url_entry:
+            logger.info(f"Processing URL: {url_entry.url}")
+            seo_analyze(url_entry.url)
+            mark_url_as_crawled(url_entry.url)
+            result = "URL processed"
+        else:
+            logger.info("All URLs are processed.")
+            result = "No URLs to process"
+
+        if not url_queue_is_empty():
+            crawl_next_url_task.delay()
+
     else:
-        print("Все URL обработаны или очередь пуста.")
-    return "Задача завершена"
+        logger.info("Queue is empty, skipping task execution.")
+        result = "Queue is empty"
+
+    end_time = time.time()
+    duration = end_time - start_time
+
+    return {'result': result, 'time': duration}

@@ -1,17 +1,24 @@
 from urllib.parse import urljoin
 
 import requests
+import random
 from bs4 import BeautifulSoup
 from data_storage.models import ParsedContent
-from url_queue.views import add_url_to_queue
 
 
 def fetch_html(url):
-    """
-    Загружает HTML-контент с веб-страницы, добавляя заголовок User-Agent для обхода блокировок.
-    """
+    user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Safari/605.1.15',
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+        'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
+        'Mozilla/5.0 (iPad; CPU OS 13_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0 Mobile/15E148 Safari/604.1'
+    ]
+
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        'User-Agent': random.choice(user_agents)
     }
 
     try:
@@ -19,17 +26,14 @@ def fetch_html(url):
         if response.status_code == 200:
             return response.text
         else:
-            print(f"Не удалось загрузить страницу {url}. Статус-код: {response.status_code}")
+            print(f"Failed to load the page {url}. Status code: {response.status_code}")
             return None
     except requests.RequestException as e:
-        print(f"Ошибка при загрузке страницы {url}: {e}")
+        print(f"Error on page loading {url}: {e}")
         return None
 
 
 def extract_headings(html_content):
-    """
-    Извлекает заголовки h1, h2, h3 со страницы.
-    """
     soup = BeautifulSoup(html_content, 'html.parser')
     headings = {
         'h1': [h1.text.strip() for h1 in soup.find_all('h1')],
@@ -40,9 +44,6 @@ def extract_headings(html_content):
 
 
 def extract_meta_tags(html_content):
-    """
-    Извлекает мета-теги title, description и keywords.
-    """
     soup = BeautifulSoup(html_content, 'html.parser')
     meta_data = {
         'title': soup.title.string.strip() if soup.title else 'Нет тега title',
@@ -62,27 +63,19 @@ def extract_meta_tags(html_content):
 
 
 def extract_links(html_content):
-    """
-    Извлекает все ссылки (атрибут href) на странице.
-    """
     soup = BeautifulSoup(html_content, 'html.parser')
     links = [a['href'] for a in soup.find_all('a', href=True)]
     return links
 
 
 def extract_text(html_content):
-    """
-    Извлекает основной текст страницы (теги p).
-    """
     soup = BeautifulSoup(html_content, 'html.parser')
     paragraphs = [p.text.strip() for p in soup.find_all('p')]
     return ' '.join(paragraphs)
 
 
 def seo_analyze(url):
-    """
-    Проводит SEO-анализ страницы по URL, сохраняет результаты и добавляет найденные ссылки в очередь.
-    """
+    from url_queue.views import add_url_to_queue
     html_content = fetch_html(url)
 
     if html_content:
@@ -97,15 +90,12 @@ def seo_analyze(url):
             absolute_url = urljoin(url, link)
             add_url_to_queue(absolute_url)
 
-        print(f"Результаты для {url} сохранены и ссылки добавлены в очередь.")
+        print(f"Results for {url} saved and links added to the queue.")
     else:
-        print(f"Не удалось загрузить страницу по адресу {url}")
+        print(f"Failed to load the page at {url}")
 
 
 def save_parsed_content(url, headings, meta_tags, links, text):
-    """
-    Сохраняет результаты парсинга страницы в базу данных с читаемыми символами.
-    """
     parsed_content = ParsedContent(
         url=url,
         title=meta_tags.get('title', ''),

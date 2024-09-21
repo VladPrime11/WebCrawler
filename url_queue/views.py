@@ -1,41 +1,42 @@
 import json
-
+from django.core.validators import URLValidator
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.core.exceptions import ValidationError
 
 from .models import UrlQueue
 
 
 def add_url_to_queue(url):
-    """
-    Добавляет новый URL в очередь, если его еще нет.
-    """
     if not UrlQueue.objects.filter(url=url).exists():
         new_url = UrlQueue(url=url)
         new_url.save()
-        print(f"URL {url} добавлен в очередь.")
+        print(f"URL {url} added to the queue.")
         return True
     return False
 
 
 def get_next_url():
-    """
-    Возвращает следующий URL для обработки, который ещё не был обработан.
-    """
     next_url = UrlQueue.objects.filter(crawled=False).first()
     return next_url
 
 
 def mark_url_as_crawled(url):
-    """
-    Помечает URL как обработанный.
-    """
     try:
         url_entry = UrlQueue.objects.get(url=url)
         url_entry.crawled = True
         url_entry.save()
         return True
     except UrlQueue.DoesNotExist:
+        return False
+
+
+def is_valid_url(url):
+    validate = URLValidator()
+    try:
+        validate(url)
+        return True
+    except ValidationError:
         return False
 
 
@@ -49,8 +50,29 @@ def add_url_view(request):
                 added = add_url_to_queue(url)
                 return JsonResponse({'success': added})
             else:
-                return JsonResponse({'success': False, 'message': 'URL не найден в запросе'})
+                return JsonResponse({'success': False, 'message': 'URL not found in the request'})
         except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'message': 'Неверный формат JSON'})
+            return JsonResponse({'success': False, 'message': 'Invalid JSON format'})
 
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+@csrf_exempt
+def start_crawler(request):
+    from crawler_manager.tasks import crawl_next_url_task
+    task = crawl_next_url_task.delay()
+    request.session['task_id'] = task.id
+    return JsonResponse({'message': 'Crawler task started successfully!', 'task_id': task.id})
+
+
+def clear_queue():
+    UrlQueue.objects.all().delete()
+    print("Queue cleared.")
+    return True
+
+
+@csrf_exempt
+def clear_queue_view(request):
+    if request.method == "POST":
+        cleared = clear_queue()
+        return JsonResponse({'success': cleared})
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
